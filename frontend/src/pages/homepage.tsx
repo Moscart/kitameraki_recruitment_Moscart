@@ -19,6 +19,7 @@ export function Homepage() {
 
   const [hasLoaded, setHasLoaded] = useState<boolean>(false);
   const prevTaskLength = useRef<number>(0);
+  const loaderRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setTasks(initialTasks);
@@ -56,7 +57,8 @@ export function Homepage() {
       .on("enter", () => {
         console.log(tasks.length);
         if (tasks.length % 10 === 0 && !hasLoaded) {
-          loadMoreTasks();
+          loaderRef?.current?.classList.remove("opacity-0");
+          setTimeout(loadMoreTasks, 1000);
         }
       })
       .addTo(controller);
@@ -67,7 +69,6 @@ export function Homepage() {
   }, [tasks, hasLoaded]);
 
   useEffect(() => {
-    // Reset hasLoaded when new tasks are added to avoid duplicate loading
     if (tasks.length !== prevTaskLength.current) {
       setHasLoaded(false);
     }
@@ -80,6 +81,7 @@ export function Homepage() {
 
     const newTasks = await getTasks(page + 1);
     setTasks((prevTasks) => [...prevTasks, ...newTasks]);
+    loaderRef?.current?.classList.add("opacity-0");
     setHasLoaded(true);
   };
 
@@ -155,7 +157,12 @@ export function Homepage() {
           <p>No tasks</p>
         )}
       </div>
-      <div className="trigger">Trigger</div>
+      <div
+        ref={loaderRef}
+        className="trigger text-center mt-10 font-bold text-lg"
+      >
+        Loading...
+      </div>
     </div>
   );
 }
