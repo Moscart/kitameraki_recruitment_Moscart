@@ -1,7 +1,8 @@
 import { Link, useLoaderData, useRevalidator } from "react-router-dom";
 import { deleteTask, getTasks, Task, updateTask } from "../task";
 import { Button } from "@fluentui/react-components";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import ScrollMagic from "scrollmagic";
 
 export async function loader() {
   const tasks = await getTasks();
@@ -9,11 +10,19 @@ export async function loader() {
 }
 
 export function Homepage() {
-  const { tasks } = useLoaderData() as { tasks: Task[] };
+  const { tasks: initialTasks } = useLoaderData() as { tasks: Task[] };
+  const [tasks, setTasks] = useState<Task[]>(initialTasks);
   const revalidator = useRevalidator();
   const [originalTitles, setOriginalTitles] = useState<{
     [key: string]: string;
   }>({});
+
+  const [hasLoaded, setHasLoaded] = useState<boolean>(false);
+  const prevTaskLength = useRef<number>(0);
+
+  useEffect(() => {
+    setTasks(initialTasks);
+  }, [initialTasks]);
 
   const handleDelete = (id: string) => {
     deleteTask(id).then(() => revalidator.revalidate());
@@ -37,8 +46,45 @@ export function Homepage() {
     setOriginalTitles((prevState) => ({ ...prevState, [id]: title }));
   };
 
+  useEffect(() => {
+    const controller = new ScrollMagic.Controller();
+
+    const scene = new ScrollMagic.Scene({
+      triggerElement: ".trigger",
+      triggerHook: "onEnter",
+    })
+      .on("enter", () => {
+        console.log(tasks.length);
+        if (tasks.length % 10 === 0 && !hasLoaded) {
+          loadMoreTasks();
+        }
+      })
+      .addTo(controller);
+    return () => {
+      scene.destroy();
+      controller.destroy(true);
+    };
+  }, [tasks, hasLoaded]);
+
+  useEffect(() => {
+    // Reset hasLoaded when new tasks are added to avoid duplicate loading
+    if (tasks.length !== prevTaskLength.current) {
+      setHasLoaded(false);
+    }
+
+    prevTaskLength.current = tasks.length;
+  }, [tasks]);
+
+  const loadMoreTasks = async () => {
+    const page = tasks.length / 10;
+
+    const newTasks = await getTasks(page + 1);
+    setTasks((prevTasks) => [...prevTasks, ...newTasks]);
+    setHasLoaded(true);
+  };
+
   return (
-    <div className="max-w-screen-xl mx-auto px-6 mt-20">
+    <div className="max-w-screen-xl mx-auto px-6 my-20">
       <div className="flex justify-between items-center">
         <h1 className="font-bold text-3xl">Task List</h1>
         <div className="">
@@ -109,6 +155,7 @@ export function Homepage() {
           <p>No tasks</p>
         )}
       </div>
+      <div className="trigger">Trigger</div>
     </div>
   );
 }
